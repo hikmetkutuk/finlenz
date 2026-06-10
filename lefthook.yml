@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      glob: "frontend/src/**/*.{ts,tsx}"
+      run: cd frontend && npx prettier --write {staged_files}
+      stage_fixed: true
+
+    gofmt:
+      glob: "backend/**/*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
