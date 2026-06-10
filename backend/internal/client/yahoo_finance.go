@@ -1,0 +1,230 @@
+package client
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/cookiejar"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/hikmetkutuk/finlenz/backend/internal/model"
+)
+
+const (
+	baseURL     = "https://query1.finance.yahoo.com/v10/finance/quoteSummary"
+	cacheTTL    = 5 * time.Minute
+	httpTimeout = 15 * time.Second
+)
+
+type cacheEntry struct {
+	data      *model.StockData
+	expiresAt time.Time
+}
+
+type YahooFinanceClient struct {
+	httpClient *http.Client
+	crumb      string
+	crumbMu    sync.Mutex
+	cache      map[string]*cacheEntry
+	mu         sync.Mutex
+}
+
+func NewYahooFinanceClient() *YahooFinanceClient {
+	jar, _ := cookiejar.New(nil)
+	return &YahooFinanceClient{
+		httpClient: &http.Client{
+			Timeout: httpTimeout,
+			Jar:     jar,
+		},
+		cache: make(map[string]*cacheEntry),
+	}
+}
+
+var browserHeaders = map[string]string{
+	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	"Accept-Language": "en-US,en;q=0.9",
+}
+
+func (c *YahooFinanceClient) initSession() error {
+	c.crumbMu.Lock()
+	defer c.crumbMu.Unlock()
+
+	if c.crumb != "" {
+		return nil
+	}
+
+	// Step 1: visit finance.yahoo.com to get cookies
+	req, _ := http.NewRequest("GET", "https://finance.yahoo.com", nil)
+	for k, v := range browserHeaders {
+		req.Header.Set(k, v)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("session init failed: %w", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	// Step 2: get crumb
+	crumbReq, _ := http.NewRequest("GET", "https://query1.finance.yahoo.com/v1/test/getcrumb", nil)
+	for k, v := range browserHeaders {
+		crumbReq.Header.Set(k, v)
+	}
+	crumbReq.Header.Set("Accept", "text/plain")
+
+	crumbResp, err := c.httpClient.Do(crumbReq)
+	if err != nil {
+		return fmt.Errorf("crumb fetch failed: %w", err)
+	}
+	defer crumbResp.Body.Close()
+
+	body, _ := io.ReadAll(crumbResp.Body)
+	crumb := strings.TrimSpace(string(body))
+
+	if crumbResp.StatusCode != 200 || crumb == "" || strings.Contains(crumb, "error") {
+		return fmt.Errorf("invalid crumb response (status %d): %s", crumbResp.StatusCode, crumb)
+	}
+
+	c.crumb = crumb
+	return nil
+}
+
+func (c *YahooFinanceClient) GetStockData(symbol string) (*model.StockData, error) {
+	c.mu.Lock()
+	if entry, ok := c.cache[symbol]; ok && time.Now().Before(entry.expiresAt) {
+		c.mu.Unlock()
+		return entry.data, nil
+	}
+	c.mu.Unlock()
+
+	if err := c.initSession(); err != nil {
+		return nil, err
+	}
+
+	data, err := c.fetchStockData(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.cache[symbol] = &cacheEntry{data: data, expiresAt: time.Now().Add(cacheTTL)}
+	c.mu.Unlock()
+
+	return data, nil
+}
+
+type yahooResponse struct {
+	QuoteSummary struct {
+		Result []struct {
+			Price struct {
+				Symbol                     string                           `json:"symbol"`
+				LongName                   string                           `json:"longName"`
+				ShortName                  string                           `json:"shortName"`
+				RegularMarketPrice         struct{ Raw float64 `json:"raw"` } `json:"regularMarketPrice"`
+				RegularMarketChangePercent struct{ Raw float64 `json:"raw"` } `json:"regularMarketChangePercent"`
+				Currency                   string                           `json:"currency"`
+				MarketCap                  struct{ Raw float64 `json:"raw"` } `json:"marketCap"`
+			} `json:"price"`
+			DefaultKeyStatistics struct {
+				PriceToBook             struct{ Raw float64 `json:"raw"` } `json:"priceToBook"`
+				EnterpriseToEbitda      struct{ Raw float64 `json:"raw"` } `json:"enterpriseToEbitda"`
+				ReturnOnInvestedCapital struct{ Raw float64 `json:"raw"` } `json:"returnOnInvestedCapital"`
+			} `json:"defaultKeyStatistics"`
+			SummaryDetail struct {
+				TrailingPE struct{ Raw float64 `json:"raw"` } `json:"trailingPE"`
+			} `json:"summaryDetail"`
+			FinancialData struct {
+				TotalRevenue      struct{ Raw float64 `json:"raw"` } `json:"totalRevenue"`
+				Ebitda            struct{ Raw float64 `json:"raw"` } `json:"ebitda"`
+				NetIncomeToCommon struct{ Raw float64 `json:"raw"` } `json:"netIncomeToCommon"`
+				EbitdaMargins     struct{ Raw float64 `json:"raw"` } `json:"ebitdaMargins"`
+				ProfitMargins     struct{ Raw float64 `json:"raw"` } `json:"profitMargins"`
+				RevenueGrowth     struct{ Raw float64 `json:"raw"` } `json:"revenueGrowth"`
+			} `json:"financialData"`
+		} `json:"result"`
+		Error interface{} `json:"error"`
+	} `json:"quoteSummary"`
+}
+
+func (c *YahooFinanceClient) fetchStockData(symbol string) (*model.StockData, error) {
+	apiURL, _ := url.Parse(fmt.Sprintf("%s/%s", baseURL, symbol))
+	q := apiURL.Query()
+	q.Set("modules", "price,summaryDetail,defaultKeyStatistics,financialData")
+	q.Set("crumb", c.crumb)
+	apiURL.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", apiURL.String(), nil)
+	for k, v := range browserHeaders {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed for %s: %w", symbol, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		// reset crumb so next call re-authenticates
+		c.crumbMu.Lock()
+		c.crumb = ""
+		c.crumbMu.Unlock()
+		return nil, fmt.Errorf("authentication error for %s (status %d)", symbol, resp.StatusCode)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("yahoo finance returned status %d for %s", resp.StatusCode, symbol)
+	}
+
+	var yr yahooResponse
+	if err := json.NewDecoder(resp.Body).Decode(&yr); err != nil {
+		return nil, fmt.Errorf("failed to decode response for %s: %w", symbol, err)
+	}
+
+	if len(yr.QuoteSummary.Result) == 0 {
+		return nil, fmt.Errorf("no data found for symbol %s", symbol)
+	}
+
+	r := yr.QuoteSummary.Result[0]
+
+	name := r.Price.LongName
+	if name == "" {
+		name = r.Price.ShortName
+	}
+
+	data := &model.StockData{
+		Ticker:        symbol,
+		CompanyName:   name,
+		CurrentPrice:  r.Price.RegularMarketPrice.Raw,
+		PercentChange: r.Price.RegularMarketChangePercent.Raw * 100,
+		Currency:      r.Price.Currency,
+	}
+
+	ptr := func(v float64) *float64 {
+		if v == 0 {
+			return nil
+		}
+		x := v
+		return &x
+	}
+
+	data.MarketCap = ptr(r.Price.MarketCap.Raw)
+	data.PERatio = ptr(r.SummaryDetail.TrailingPE.Raw)
+	data.PBRatio = ptr(r.DefaultKeyStatistics.PriceToBook.Raw)
+	data.EVToEBITDA = ptr(r.DefaultKeyStatistics.EnterpriseToEbitda.Raw)
+	data.ROIC = ptr(r.DefaultKeyStatistics.ReturnOnInvestedCapital.Raw * 100)
+	data.RevenueTTM = ptr(r.FinancialData.TotalRevenue.Raw)
+	data.EBITDA = ptr(r.FinancialData.Ebitda.Raw)
+	data.NetIncome = ptr(r.FinancialData.NetIncomeToCommon.Raw)
+	data.EBITDAMargin = ptr(r.FinancialData.EbitdaMargins.Raw * 100)
+	data.NetMargin = ptr(r.FinancialData.ProfitMargins.Raw * 100)
+	data.RevenueYoYPct = ptr(r.FinancialData.RevenueGrowth.Raw * 100)
+
+	return data, nil
+}
