@@ -34,9 +34,12 @@ func main() {
 
 	yf := client.NewYahooFinanceClient()
 	stockHandler := handler.NewStockHandler(yf)
+	stocksHandler := handler.NewStocksHandler(stockRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/compare", stockHandler.Compare)
+	mux.HandleFunc("/api/stocks", stocksHandler.List)
+	mux.HandleFunc("/api/sectors", stocksHandler.Sectors)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"status":"ok"}`))
 	})

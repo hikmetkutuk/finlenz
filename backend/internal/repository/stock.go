@@ -23,13 +23,11 @@ func (r *StockRepository) UpsertAll(ctx context.Context, stocks []client.Stock) 
 	}
 	defer tx.Rollback(ctx)
 
-	// Collect tickers from current sync
 	tickers := make([]string, 0, len(stocks))
 	for _, s := range stocks {
 		tickers = append(tickers, s.Ticker)
 	}
 
-	// Upsert all fetched stocks
 	for _, s := range stocks {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO stocks (ticker, name, sector, industry, exchange, updated_at)
@@ -45,10 +43,7 @@ func (r *StockRepository) UpsertAll(ctx context.Context, stocks []client.Stock) 
 		}
 	}
 
-	// Delete tickers no longer present in TradingView
-	_, err = tx.Exec(ctx, `
-		DELETE FROM stocks WHERE ticker != ALL($1)
-	`, tickers)
+	_, err = tx.Exec(ctx, `DELETE FROM stocks WHERE ticker != ALL($1)`, tickers)
 	if err != nil {
 		return err
 	}
@@ -60,4 +55,72 @@ func (r *StockRepository) Count(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRow(ctx, "SELECT COUNT(*) FROM stocks").Scan(&count)
 	return count, err
+}
+
+type StockRow struct {
+	Ticker   string
+	Name     string
+	Sector   string
+	Industry string
+}
+
+func (r *StockRepository) List(ctx context.Context, sector string) ([]StockRow, error) {
+	// Initialize as non-nil so JSON encodes as [] not null
+	rows := make([]StockRow, 0)
+
+	var query string
+	var args []interface{}
+	if sector != "" {
+		query = `SELECT ticker, name, sector, industry FROM stocks WHERE sector = $1 ORDER BY ticker`
+		args = []interface{}{sector}
+	} else {
+		query = `SELECT ticker, name, sector, industry FROM stocks ORDER BY ticker`
+	}
+
+	result, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return rows, err
+	}
+	defer result.Close()
+
+	for result.Next() {
+		var s StockRow
+		if err := result.Scan(&s.Ticker, &s.Name, &s.Sector, &s.Industry); err != nil {
+			return rows, err
+		}
+		rows = append(rows, s)
+	}
+
+	if err := result.Err(); err != nil {
+		return rows, err
+	}
+
+	return rows, nil
+}
+
+func (r *StockRepository) Sectors(ctx context.Context) ([]string, error) {
+	// Initialize as non-nil so JSON encodes as [] not null
+	sectors := make([]string, 0)
+
+	result, err := r.db.Query(ctx,
+		`SELECT DISTINCT sector FROM stocks WHERE sector != '' ORDER BY sector`,
+	)
+	if err != nil {
+		return sectors, err
+	}
+	defer result.Close()
+
+	for result.Next() {
+		var s string
+		if err := result.Scan(&s); err != nil {
+			return sectors, err
+		}
+		sectors = append(sectors, s)
+	}
+
+	if err := result.Err(); err != nil {
+		return sectors, err
+	}
+
+	return sectors, nil
 }
