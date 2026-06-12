@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/hikmetkutuk/finlenz/backend/internal/client"
 	"github.com/hikmetkutuk/finlenz/backend/internal/db"
@@ -15,6 +16,10 @@ import (
 
 func main() {
 	ctx := context.Background()
+	adminAPIKey := os.Getenv("ADMIN_API_KEY")
+	if adminAPIKey == "" {
+		log.Fatal("ADMIN_API_KEY environment variable is required")
+	}
 
 	pool, err := db.Connect(ctx)
 	if err != nil {
@@ -35,11 +40,23 @@ func main() {
 	yf := client.NewYahooFinanceClient()
 	stockHandler := handler.NewStockHandler(yf)
 	stocksHandler := handler.NewStocksHandler(stockRepo)
+	adminHandler := handler.NewAdminHandler(stockRepo)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/compare", stockHandler.Compare)
 	mux.HandleFunc("/api/stocks", stocksHandler.List)
 	mux.HandleFunc("/api/sectors", stocksHandler.Sectors)
+	adminRoutes := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			adminHandler.UpsertOverride(w, r)
+		case http.MethodDelete:
+			adminHandler.DeleteOverride(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/overrides/", middleware.APIKey(adminAPIKey, adminRoutes))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"status":"ok"}`))
 	})

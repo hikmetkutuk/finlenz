@@ -133,6 +133,58 @@ func (r *StockRepository) GetOverrides(ctx context.Context) (map[string]Override
 	return overrides, nil
 }
 
+func (r *StockRepository) UpsertOverride(ctx context.Context, ticker, sector, industry string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO stock_overrides (ticker, sector, industry)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (ticker) DO UPDATE
+		SET sector = EXCLUDED.sector, industry = EXCLUDED.industry
+	`, ticker, sector, industry)
+	if err != nil {
+		return fmt.Errorf("upsert override: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE stocks SET sector = $2, industry = $3, updated_at = NOW()
+		WHERE ticker = $1
+	`, ticker, sector, industry)
+	if err != nil {
+		return fmt.Errorf("apply override to stocks: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *StockRepository) DeleteOverride(ctx context.Context, ticker string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `DELETE FROM stock_overrides WHERE ticker = $1`, ticker)
+	if err != nil {
+		return fmt.Errorf("delete override: %w", err)
+	}
+
+	// The next TradingView sync restores the source values after this reset.
+	_, err = tx.Exec(ctx, `
+		UPDATE stocks SET sector = '', industry = '', updated_at = NOW()
+		WHERE ticker = $1
+	`, ticker)
+	if err != nil {
+		return fmt.Errorf("clear overridden stock values: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *StockRepository) Sectors(ctx context.Context) ([]string, error) {
 	// Initialize as non-nil so JSON encodes as [] not null
 	sectors := make([]string, 0)

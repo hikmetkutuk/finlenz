@@ -1,5 +1,7 @@
 import type { CompareResponse, StockListItem } from "./types";
 
+const ADMIN_KEY = import.meta.env.VITE_ADMIN_API_KEY ?? "";
+
 export async function fetchSectors(): Promise<string[]> {
   const resp = await fetch("/api/sectors");
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -13,6 +15,36 @@ export async function fetchStocks(sector?: string): Promise<StockListItem[]> {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
+}
+
+export async function saveOverride(
+  ticker: string,
+  sector: string,
+  industry: string,
+): Promise<void> {
+  const resp = await fetch(
+    `/api/admin/overrides/${encodeURIComponent(ticker)}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ADMIN_KEY}`,
+      },
+      body: JSON.stringify({ sector, industry }),
+    },
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+}
+
+export async function deleteOverride(ticker: string): Promise<void> {
+  const resp = await fetch(
+    `/api/admin/overrides/${encodeURIComponent(ticker)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${ADMIN_KEY}` },
+    },
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 }
 
 export async function fetchComparison(

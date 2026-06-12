@@ -45,10 +45,6 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			sector   VARCHAR(100),
 			industry VARCHAR(100)
 		);
-
-		INSERT INTO stock_overrides (ticker, sector, industry) VALUES
-			('KRONT', 'Electronic Technology', 'Telecommunications Equipment')
-		ON CONFLICT (ticker) DO NOTHING;
 	`)
 	return err
 }
