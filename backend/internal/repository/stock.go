@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -96,6 +97,40 @@ func (r *StockRepository) List(ctx context.Context, sector string) ([]StockRow, 
 	}
 
 	return rows, nil
+}
+
+type Override struct {
+	Sector   string
+	Industry string
+}
+
+func (r *StockRepository) GetOverrides(ctx context.Context) (map[string]Override, error) {
+	result, err := r.db.Query(ctx, `SELECT ticker, sector, industry FROM stock_overrides`)
+	if err != nil {
+		return nil, fmt.Errorf("query overrides: %w", err)
+	}
+	defer result.Close()
+
+	overrides := make(map[string]Override)
+	for result.Next() {
+		var ticker string
+		var sector, industry *string // nullable columns
+		if err := result.Scan(&ticker, &sector, &industry); err != nil {
+			return nil, fmt.Errorf("scan override row: %w", err)
+		}
+		ov := Override{}
+		if sector != nil {
+			ov.Sector = *sector
+		}
+		if industry != nil {
+			ov.Industry = *industry
+		}
+		overrides[ticker] = ov
+	}
+	if err := result.Err(); err != nil {
+		return nil, fmt.Errorf("iterate overrides: %w", err)
+	}
+	return overrides, nil
 }
 
 func (r *StockRepository) Sectors(ctx context.Context) ([]string, error) {

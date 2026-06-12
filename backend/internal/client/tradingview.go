@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -54,13 +55,14 @@ func (c *TradingViewClient) FetchAllStocks() ([]Stock, error) {
 	offset := 0
 
 	for {
-		page, total, err := c.fetchPage(offset, tvPageSize)
+		page, rawCount, total, err := c.fetchPage(offset, tvPageSize)
 		if err != nil {
 			return nil, err
 		}
 		stocks = append(stocks, page...)
-		offset += len(page)
-		if offset >= total || len(page) == 0 {
+		// Advance by raw (unfiltered) page size to avoid range overlap
+		offset += rawCount
+		if offset >= total || rawCount == 0 {
 			break
 		}
 	}
@@ -68,7 +70,7 @@ func (c *TradingViewClient) FetchAllStocks() ([]Stock, error) {
 	return stocks, nil
 }
 
-func (c *TradingViewClient) fetchPage(offset, size int) ([]Stock, int, error) {
+func (c *TradingViewClient) fetchPage(offset, size int) ([]Stock, int, int, error) {
 	payload := tvRequest{
 		Columns: []string{"name", "description", "sector", "industry"},
 		Range:   [2]int{offset, offset + size},
@@ -82,20 +84,21 @@ func (c *TradingViewClient) fetchPage(offset, size int) ([]Stock, int, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("tradingview request failed: %w", err)
+		return nil, 0, 0, fmt.Errorf("tradingview request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("tradingview returned status %d", resp.StatusCode)
+		return nil, 0, 0, fmt.Errorf("tradingview returned status %d", resp.StatusCode)
 	}
 
 	var tvResp tvResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tvResp); err != nil {
-		return nil, 0, fmt.Errorf("decode tradingview response: %w", err)
+		return nil, 0, 0, fmt.Errorf("decode tradingview response: %w", err)
 	}
 
-	stocks := make([]Stock, 0, len(tvResp.Data))
+	rawCount := len(tvResp.Data)
+	stocks := make([]Stock, 0, rawCount)
 	for _, item := range tvResp.Data {
 		if len(item.D) < 4 {
 			continue
@@ -106,13 +109,26 @@ func (c *TradingViewClient) fetchPage(offset, size int) ([]Stock, int, error) {
 			Sector:   getString(item.D[2]),
 			Industry: getString(item.D[3]),
 		}
-		if stock.Ticker == "" {
+		if stock.Ticker == "" || isETF(stock) {
 			continue
 		}
 		stocks = append(stocks, stock)
 	}
 
-	return stocks, tvResp.TotalCount, nil
+	return stocks, rawCount, tvResp.TotalCount, nil
+}
+
+// isETF filters out ETFs, mutual funds and certificates by name keywords only.
+// Industry "Investment Trusts/Mutual Funds" is intentionally NOT used because
+// it also covers listed investment trusts which are valid BIST equities.
+func isETF(s Stock) bool {
+	keywords := []string{"ETF", "Portfoy", "Fon ", "Sertifika", "Borsa Yatirim"}
+	for _, kw := range keywords {
+		if strings.Contains(s.Name, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 func getString(v interface{}) string {

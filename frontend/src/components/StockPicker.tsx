@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchSectors, fetchStocks } from "../lib/api";
 import type { StockListItem } from "../lib/types";
+import { translateSector, translateIndustry } from "../lib/utils";
 
 interface Props {
   readonly label: string;
@@ -57,7 +58,7 @@ export default function StockPicker({ label, value, onChange }: Props) {
         <option value="">Tüm Sektörler</option>
         {sectors.map((s) => (
           <option key={s} value={s}>
-            {s}
+            {translateSector(s)}
           </option>
         ))}
       </select>
@@ -94,7 +95,7 @@ export default function StockPicker({ label, value, onChange }: Props) {
         <div className="mt-2 text-xs text-slate-400">
           Seçili:{" "}
           <span className="text-blue-400 font-medium">{selected.Ticker}</span> —{" "}
-          {selected.Industry}
+          {translateIndustry(selected.Industry)}
         </div>
       )}
     </div>

@@ -31,6 +31,22 @@ func (s *SyncService) sync(ctx context.Context) error {
 		return err
 	}
 
+	overrides, err := s.repo.GetOverrides(ctx)
+	if err != nil {
+		log.Printf("failed to load overrides: %v", err)
+	}
+
+	for i, stock := range stocks {
+		if ov, ok := overrides[stock.Ticker]; ok {
+			if ov.Sector != "" {
+				stocks[i].Sector = ov.Sector
+			}
+			if ov.Industry != "" {
+				stocks[i].Industry = ov.Industry
+			}
+		}
+	}
+
 	if err := s.repo.UpsertAll(ctx, stocks); err != nil {
 		return err
 	}

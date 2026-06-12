@@ -18,9 +18,11 @@ export async function fetchStocks(sector?: string): Promise<StockListItem[]> {
 export async function fetchComparison(
   ticker1: string,
   ticker2: string,
+  signal?: AbortSignal,
 ): Promise<CompareResponse> {
   const resp = await fetch(
     `/api/compare?symbols=${encodeURIComponent(ticker1)},${encodeURIComponent(ticker2)}`,
+    { signal },
   );
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));

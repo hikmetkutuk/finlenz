@@ -39,6 +39,16 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		);
 		CREATE INDEX IF NOT EXISTS idx_stocks_sector   ON stocks(sector);
 		CREATE INDEX IF NOT EXISTS idx_stocks_industry ON stocks(industry);
+
+		CREATE TABLE IF NOT EXISTS stock_overrides (
+			ticker   VARCHAR(20) PRIMARY KEY,
+			sector   VARCHAR(100),
+			industry VARCHAR(100)
+		);
+
+		INSERT INTO stock_overrides (ticker, sector, industry) VALUES
+			('KRONT', 'Electronic Technology', 'Telecommunications Equipment')
+		ON CONFLICT (ticker) DO NOTHING;
 	`)
 	return err
 }
