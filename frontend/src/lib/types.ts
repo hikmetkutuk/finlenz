@@ -4,17 +4,27 @@ export interface StockData {
   currentPrice: number;
   percentChange: number;
   currency: string;
+  // Değerleme
   peRatio?: number;
   pbRatio?: number;
   evToEBITDA?: number;
   marketCap?: number;
+  // Büyüme
   revenueTTM?: number;
   revenueYoYPct?: number;
   ebitda?: number;
   netIncome?: number;
+  // Kârlılık
+  grossMargin?: number;
   ebitdaMargin?: number;
   netMargin?: number;
+  roe?: number;
+  roa?: number;
   roic?: number;
+  // Borçluluk
+  currentRatio?: number;
+  debtToEquity?: number;
+  netDebtToEBITDA?: number;
 }
 
 export interface StockListItem {

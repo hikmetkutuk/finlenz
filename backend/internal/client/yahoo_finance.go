@@ -122,29 +122,78 @@ type yahooResponse struct {
 	QuoteSummary struct {
 		Result []struct {
 			Price struct {
-				Symbol                     string                           `json:"symbol"`
-				LongName                   string                           `json:"longName"`
-				ShortName                  string                           `json:"shortName"`
-				RegularMarketPrice         struct{ Raw float64 `json:"raw"` } `json:"regularMarketPrice"`
-				RegularMarketChangePercent struct{ Raw float64 `json:"raw"` } `json:"regularMarketChangePercent"`
-				Currency                   string                           `json:"currency"`
-				MarketCap                  struct{ Raw float64 `json:"raw"` } `json:"marketCap"`
+				Symbol             string `json:"symbol"`
+				LongName           string `json:"longName"`
+				ShortName          string `json:"shortName"`
+				RegularMarketPrice struct {
+					Raw float64 `json:"raw"`
+				} `json:"regularMarketPrice"`
+				RegularMarketChangePercent struct {
+					Raw float64 `json:"raw"`
+				} `json:"regularMarketChangePercent"`
+				Currency  string `json:"currency"`
+				MarketCap struct {
+					Raw float64 `json:"raw"`
+				} `json:"marketCap"`
 			} `json:"price"`
 			DefaultKeyStatistics struct {
-				PriceToBook             struct{ Raw float64 `json:"raw"` } `json:"priceToBook"`
-				EnterpriseToEbitda      struct{ Raw float64 `json:"raw"` } `json:"enterpriseToEbitda"`
-				ReturnOnInvestedCapital struct{ Raw float64 `json:"raw"` } `json:"returnOnInvestedCapital"`
+				PriceToBook struct {
+					Raw float64 `json:"raw"`
+				} `json:"priceToBook"`
+				EnterpriseToEbitda struct {
+					Raw float64 `json:"raw"`
+				} `json:"enterpriseToEbitda"`
+				ReturnOnInvestedCapital struct {
+					Raw float64 `json:"raw"`
+				} `json:"returnOnInvestedCapital"`
 			} `json:"defaultKeyStatistics"`
 			SummaryDetail struct {
-				TrailingPE struct{ Raw float64 `json:"raw"` } `json:"trailingPE"`
+				TrailingPE struct {
+					Raw float64 `json:"raw"`
+				} `json:"trailingPE"`
 			} `json:"summaryDetail"`
 			FinancialData struct {
-				TotalRevenue      struct{ Raw float64 `json:"raw"` } `json:"totalRevenue"`
-				Ebitda            struct{ Raw float64 `json:"raw"` } `json:"ebitda"`
-				NetIncomeToCommon struct{ Raw float64 `json:"raw"` } `json:"netIncomeToCommon"`
-				EbitdaMargins     struct{ Raw float64 `json:"raw"` } `json:"ebitdaMargins"`
-				ProfitMargins     struct{ Raw float64 `json:"raw"` } `json:"profitMargins"`
-				RevenueGrowth     struct{ Raw float64 `json:"raw"` } `json:"revenueGrowth"`
+				TotalRevenue struct {
+					Raw float64 `json:"raw"`
+				} `json:"totalRevenue"`
+				Ebitda struct {
+					Raw float64 `json:"raw"`
+				} `json:"ebitda"`
+				NetIncomeToCommon struct {
+					Raw float64 `json:"raw"`
+				} `json:"netIncomeToCommon"`
+				GrossMargins struct {
+					Raw float64 `json:"raw"`
+				} `json:"grossMargins"`
+				EbitdaMargins struct {
+					Raw float64 `json:"raw"`
+				} `json:"ebitdaMargins"`
+				ProfitMargins struct {
+					Raw float64 `json:"raw"`
+				} `json:"profitMargins"`
+				RevenueGrowth struct {
+					Raw float64 `json:"raw"`
+				} `json:"revenueGrowth"`
+				ReturnOnEquity struct {
+					Raw float64 `json:"raw"`
+				} `json:"returnOnEquity"`
+				ReturnOnAssets struct {
+					Raw float64 `json:"raw"`
+				} `json:"returnOnAssets"`
+				CurrentRatio struct {
+					Raw float64 `json:"raw"`
+				} `json:"currentRatio"`
+				// DebtToEquity: Yahoo reports as percentage (85 = 85%), nullable to detect absence
+				DebtToEquity struct {
+					Raw *float64 `json:"raw"`
+				} `json:"debtToEquity"`
+				// TotalCash/TotalDebt: nullable to detect absence vs. genuine zero
+				TotalCash struct {
+					Raw *float64 `json:"raw"`
+				} `json:"totalCash"`
+				TotalDebt struct {
+					Raw *float64 `json:"raw"`
+				} `json:"totalDebt"`
 			} `json:"financialData"`
 		} `json:"result"`
 		Error interface{} `json:"error"`
@@ -222,9 +271,29 @@ func (c *YahooFinanceClient) fetchStockData(symbol string) (*model.StockData, er
 	data.RevenueTTM = ptr(r.FinancialData.TotalRevenue.Raw)
 	data.EBITDA = ptr(r.FinancialData.Ebitda.Raw)
 	data.NetIncome = ptr(r.FinancialData.NetIncomeToCommon.Raw)
+	data.GrossMargin = ptr(r.FinancialData.GrossMargins.Raw * 100)
 	data.EBITDAMargin = ptr(r.FinancialData.EbitdaMargins.Raw * 100)
 	data.NetMargin = ptr(r.FinancialData.ProfitMargins.Raw * 100)
 	data.RevenueYoYPct = ptr(r.FinancialData.RevenueGrowth.Raw * 100)
+	data.ROE = ptr(r.FinancialData.ReturnOnEquity.Raw * 100)
+	data.ROA = ptr(r.FinancialData.ReturnOnAssets.Raw * 100)
+	data.CurrentRatio = ptr(r.FinancialData.CurrentRatio.Raw)
+
+	// Yahoo reports debtToEquity as a percentage (85 = 85%); convert to ratio (0.85)
+	if r.FinancialData.DebtToEquity.Raw != nil {
+		v := *r.FinancialData.DebtToEquity.Raw / 100
+		data.DebtToEquity = &v
+	}
+
+	// Net Borç/FAVÖK = (Toplam Borç - Nakit) / FAVÖK
+	// Only compute when all three inputs are explicitly present in the response
+	rawDebt := r.FinancialData.TotalDebt.Raw
+	rawCash := r.FinancialData.TotalCash.Raw
+	ebitda := r.FinancialData.Ebitda.Raw
+	if rawDebt != nil && rawCash != nil && ebitda != 0 {
+		v := (*rawDebt - *rawCash) / ebitda
+		data.NetDebtToEBITDA = &v
+	}
 
 	return data, nil
 }

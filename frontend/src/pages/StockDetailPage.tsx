@@ -1,6 +1,6 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { fetchStockDetail } from "../lib/api";
+import { fetchStockDetail, saveOverride } from "../lib/api";
 import type { StockDetail } from "../lib/types";
 import {
   formatPrice,
@@ -99,6 +99,11 @@ export default function StockDetailPage() {
   const { ticker } = useParams<{ ticker: string }>();
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, { status: STATUS.IDLE });
+  const [editing, setEditing] = useState(false);
+  const [editSector, setEditSector] = useState("");
+  const [editIndustry, setEditIndustry] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!ticker) return;
@@ -144,6 +149,35 @@ export default function StockDetailPage() {
   const d = state.data;
   const changePositive = d.percentChange >= 0;
 
+  function startEdit() {
+    setEditSector(d.sector);
+    setEditIndustry(d.industry);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  async function handleSave() {
+    if (!ticker) return;
+    setSaving(true);
+    try {
+      await saveOverride(ticker, editSector, editIndustry);
+      dispatch({
+        type: ACTION.SUCCESS,
+        data: { ...d, sector: editSector, industry: editIndustry },
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      setEditing(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-4 py-10">
       {/* Breadcrumb */}
@@ -160,16 +194,59 @@ export default function StockDetailPage() {
         <div>
           <h2 className="text-3xl font-bold text-white">{ticker}</h2>
           <p className="text-slate-400 mt-1">{d.companyName}</p>
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
-              {translateSector(d.sector)}
-            </span>
-            {d.industry && (
-              <span className="text-xs text-slate-500">
-                {translateIndustry(d.industry)}
-              </span>
-            )}
-          </div>
+          {editing ? (
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <input
+                value={editSector}
+                onChange={(e) => setEditSector(e.target.value)}
+                placeholder="Sektör"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 w-40"
+              />
+              <input
+                value={editIndustry}
+                onChange={(e) => setEditIndustry(e.target.value)}
+                placeholder="Endüstri"
+                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 w-48"
+              />
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+              >
+                {saving ? "..." : "✓ Kaydet"}
+              </button>
+              <button
+                onClick={cancelEdit}
+                className="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+              >
+                İptal
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="inline-block bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm font-medium">
+                  {translateSector(d.sector)}
+                </span>
+                {d.industry && (
+                  <span className="inline-block text-slate-400 text-sm">
+                    • {translateIndustry(d.industry)}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={startEdit}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium text-sm transition-colors flex items-center gap-1"
+              >
+                ✎ Düzenle
+              </button>
+              {saved && (
+                <span className="text-sm text-green-400 font-medium">
+                  ✓ Kaydedildi
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-white">
@@ -204,7 +281,7 @@ export default function StockDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard label="F/K Oranı" value={formatMultiple(d.peRatio)} />
         <MetricCard label="PD/DD" value={formatMultiple(d.pbRatio)} />
-        <MetricCard label="EV/EBITDA" value={formatMultiple(d.evToEBITDA)} />
+        <MetricCard label="FD/FAVÖK" value={formatMultiple(d.evToEBITDA)} />
         <MetricCard
           label="Piyasa Değeri"
           value={formatLargeNumber(d.marketCap, d.currency)}
@@ -213,43 +290,76 @@ export default function StockDetailPage() {
 
       {/* Büyüme */}
       {sectionTitle("Büyüme")}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard
-          label="Hasılat (TTM)"
+          label="Hasılat (Son 12 Ay)"
           value={formatLargeNumber(d.revenueTTM, d.currency)}
         />
         <MetricCard
-          label="Hasılat YoY"
+          label="Hasılat Büyümesi"
           value={formatPercent(d.revenueYoYPct)}
           highlight={signHighlight(d.revenueYoYPct)}
         />
         <MetricCard
-          label="EBITDA"
+          label="FAVÖK"
           value={formatLargeNumber(d.ebitda, d.currency)}
+        />
+        <MetricCard
+          label="Net Kâr"
+          value={formatLargeNumber(d.netIncome, d.currency)}
         />
       </div>
 
       {/* Kârlılık */}
       {sectionTitle("Kârlılık")}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <MetricCard
-          label="Net Kâr"
-          value={formatLargeNumber(d.netIncome, d.currency)}
+          label="Brüt Kâr Marjı"
+          value={formatPercent(d.grossMargin)}
+          highlight={signHighlight(d.grossMargin)}
         />
         <MetricCard
-          label="EBITDA Marjı"
+          label="FAVÖK Marjı"
           value={formatPercent(d.ebitdaMargin)}
           highlight={signHighlight(d.ebitdaMargin)}
         />
         <MetricCard
-          label="Net Marj"
+          label="Net Kâr Marjı"
           value={formatPercent(d.netMargin)}
           highlight={signHighlight(d.netMargin)}
+        />
+        <MetricCard
+          label="Özkaynak Karlılığı"
+          value={formatPercent(d.roe)}
+          highlight={signHighlight(d.roe)}
+        />
+        <MetricCard
+          label="Aktif Karlılık"
+          value={formatPercent(d.roa)}
+          highlight={signHighlight(d.roa)}
         />
         <MetricCard
           label="ROIC"
           value={formatPercent(d.roic)}
           highlight={signHighlight(d.roic)}
+        />
+      </div>
+
+      {/* Borçluluk */}
+      {sectionTitle("Borçluluk")}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <MetricCard
+          label="Cari Oran"
+          value={formatMultiple(d.currentRatio)}
+          highlight={signHighlight(d.currentRatio)}
+        />
+        <MetricCard
+          label="Borç / Özsermaye"
+          value={formatMultiple(d.debtToEquity)}
+        />
+        <MetricCard
+          label="Net Borç / FAVÖK"
+          value={formatMultiple(d.netDebtToEBITDA)}
         />
       </div>
     </main>

@@ -122,9 +122,10 @@ func (c *TradingViewClient) fetchPage(offset, size int) ([]Stock, int, int, erro
 // Industry "Investment Trusts/Mutual Funds" is intentionally NOT used because
 // it also covers listed investment trusts which are valid BIST equities.
 func isETF(s Stock) bool {
-	keywords := []string{"ETF", "Portfoy", "Fon ", "Sertifika", "Borsa Yatirim"}
+	upper := strings.ToUpper(s.Name)
+	keywords := []string{"ETF", "PORTFOY", "FON ", "SERTIFIKA", "BORSA YATIRIM"}
 	for _, kw := range keywords {
-		if strings.Contains(s.Name, kw) {
+		if strings.Contains(upper, kw) {
 			return true
 		}
 	}

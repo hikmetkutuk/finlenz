@@ -49,18 +49,6 @@ export default function Header() {
           >
             Karşılaştır
           </NavLink>
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `text-sm px-3 py-1.5 rounded-lg transition-colors ${
-                isActive
-                  ? "text-white bg-slate-800"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
-              }`
-            }
-          >
-            Düzenle
-          </NavLink>
         </nav>
       </div>
     </header>
