@@ -1,4 +1,4 @@
-import type { CompareResponse, StockListItem } from "./types";
+import type { CompareResponse, StockDetail, StockListItem } from "./types";
 
 const ADMIN_KEY = import.meta.env.VITE_ADMIN_API_KEY ?? "";
 
@@ -13,6 +13,12 @@ export async function fetchStocks(sector?: string): Promise<StockListItem[]> {
     ? `/api/stocks?sector=${encodeURIComponent(sector)}`
     : "/api/stocks";
   const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+export async function fetchStockDetail(ticker: string): Promise<StockDetail> {
+  const resp = await fetch(`/api/stocks/${encodeURIComponent(ticker)}`);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }

@@ -19,6 +19,12 @@ type StockData struct {
 	ROIC          *float64 `json:"roic"`
 }
 
+type StockDetailResponse struct {
+	*StockData
+	Sector   string `json:"sector"`
+	Industry string `json:"industry"`
+}
+
 type CompareResponse struct {
 	Data      []*StockData `json:"data"`
 	Error     *string      `json:"error"`

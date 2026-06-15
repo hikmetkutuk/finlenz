@@ -3,6 +3,7 @@ import Header from "./components/Header";
 import HomePage from "./pages/HomePage";
 import ComparePage from "./pages/ComparePage";
 import AdminPage from "./pages/AdminPage";
+import StockDetailPage from "./pages/StockDetailPage";
 
 export default function App() {
   return (
@@ -11,6 +12,7 @@ export default function App() {
         <Header />
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/stock/:ticker" element={<StockDetailPage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>

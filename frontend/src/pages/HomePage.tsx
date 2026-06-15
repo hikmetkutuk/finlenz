@@ -124,7 +124,7 @@ export default function HomePage() {
               <tr
                 key={s.Ticker}
                 className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
-                onClick={() => navigate(`/compare?s1=${s.Ticker}`)}
+                onClick={() => navigate(`/stock/${s.Ticker}`)}
               >
                 <td className="px-4 py-3 font-semibold text-blue-400">
                   {s.Ticker}

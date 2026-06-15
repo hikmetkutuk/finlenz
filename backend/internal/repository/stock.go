@@ -185,6 +185,18 @@ func (r *StockRepository) DeleteOverride(ctx context.Context, ticker string) err
 	return tx.Commit(ctx)
 }
 
+func (r *StockRepository) GetByTicker(ctx context.Context, ticker string) (*StockRow, error) {
+	var s StockRow
+	err := r.db.QueryRow(ctx,
+		`SELECT ticker, name, sector, industry FROM stocks WHERE ticker = $1`,
+		ticker,
+	).Scan(&s.Ticker, &s.Name, &s.Sector, &s.Industry)
+	if err != nil {
+		return nil, fmt.Errorf("get stock by ticker %s: %w", ticker, err)
+	}
+	return &s, nil
+}
+
 func (r *StockRepository) Sectors(ctx context.Context) ([]string, error) {
 	// Initialize as non-nil so JSON encodes as [] not null
 	sectors := make([]string, 0)

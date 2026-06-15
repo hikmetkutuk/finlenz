@@ -24,6 +24,11 @@ export interface StockListItem {
   Industry: string;
 }
 
+export interface StockDetail extends StockData {
+  sector: string;
+  industry: string;
+}
+
 export interface CompareResponse {
   data: StockData[];
   error: string | null;
