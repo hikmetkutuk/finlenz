@@ -49,7 +49,7 @@ function buildPath(points: HistoryPoint[]): {
     .join(" ");
 
   const firstX = coords[0]?.[0] ?? CHART_PADDING;
-  const lastX = coords[coords.length - 1]?.[0] ?? CHART_WIDTH - CHART_PADDING;
+  const lastX = coords.at(-1)?.[0] ?? CHART_WIDTH - CHART_PADDING;
   const baseline = CHART_HEIGHT - CHART_PADDING;
   const areaPath = `${linePath} L${lastX.toFixed(2)},${baseline} L${firstX.toFixed(2)},${baseline} Z`;
 
@@ -89,7 +89,8 @@ export default function PriceChart({ ticker }: Props) {
   );
 
   const trendUp =
-    points.length > 1 && points[points.length - 1].close >= points[0].close;
+    points.length > 1 &&
+    (points.at(-1)?.close ?? 0) >= (points.at(0)?.close ?? 0);
   const lineColor = trendUp ? "#4ade80" : "#f87171";
 
   return (

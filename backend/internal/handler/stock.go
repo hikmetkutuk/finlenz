@@ -27,8 +27,8 @@ func (h *StockHandler) Compare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	symbols := strings.Split(symbolsParam, ",")
-	if len(symbols) != 2 {
-		writeError(w, "exactly 2 symbols required", http.StatusBadRequest)
+	if len(symbols) < 2 || len(symbols) > 4 {
+		writeError(w, "between 2 and 4 symbols required", http.StatusBadRequest)
 		return
 	}
 
@@ -37,7 +37,7 @@ func (h *StockHandler) Compare(w http.ResponseWriter, r *http.Request) {
 		err  error
 	}
 
-	results := make([]result, 2)
+	results := make([]result, len(symbols))
 	var wg sync.WaitGroup
 
 	for i, sym := range symbols {
@@ -53,7 +53,7 @@ func (h *StockHandler) Compare(w http.ResponseWriter, r *http.Request) {
 
 	resp := &model.CompareResponse{
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		Data:      make([]*model.StockData, 0, 2),
+		Data:      make([]*model.StockData, 0, len(symbols)),
 	}
 
 	var errs []string

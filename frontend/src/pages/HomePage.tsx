@@ -4,7 +4,28 @@ import { fetchSectors, fetchStocks } from "../lib/api";
 import type { StockListItem } from "../lib/types";
 import { translateSector, translateIndustry } from "../lib/utils";
 
-const thClass = "text-left px-4 py-3 text-slate-400 font-medium";
+const thClass =
+  "text-left px-4 py-3 text-slate-400 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors";
+
+const SORT_KEY = {
+  TICKER: "Ticker",
+  NAME: "Name",
+  SECTOR: "Sector",
+} as const;
+
+type SortKey = (typeof SORT_KEY)[keyof typeof SORT_KEY];
+
+const SORT_DIR = {
+  ASC: "asc",
+  DESC: "desc",
+} as const;
+
+type SortDir = (typeof SORT_DIR)[keyof typeof SORT_DIR];
+
+function sortIndicator(active: boolean, dir: SortDir): string {
+  if (!active) return "";
+  return dir === SORT_DIR.ASC ? " ▲" : " ▼";
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -13,6 +34,14 @@ export default function HomePage() {
   const [industry, setIndustry] = useState("");
   const [stocks, setStocks] = useState<StockListItem[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>(SORT_KEY.TICKER);
+  const [sortDir, setSortDir] = useState<SortDir>(SORT_DIR.ASC);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 200);
+    return () => clearTimeout(id);
+  }, [search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,17 +79,41 @@ export default function HomePage() {
   }, [stocks, sector]);
 
   const filtered = useMemo(() => {
-    return stocks.filter((s) => {
+    const result = stocks.filter((s) => {
       if (industry && s.Industry !== industry) return false;
-      if (search) {
-        const q = search.toLowerCase();
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
         return (
           s.Ticker.toLowerCase().includes(q) || s.Name.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [stocks, industry, search]);
+
+    const sorted = [...result].sort((a, b) => {
+      const cmp = a[sortKey].localeCompare(b[sortKey], "tr");
+      return sortDir === SORT_DIR.ASC ? cmp : -cmp;
+    });
+
+    return sorted;
+  }, [stocks, industry, debouncedSearch, sortKey, sortDir]);
+
+  const hasActiveFilters = sector !== "" || industry !== "" || search !== "";
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir(sortDir === SORT_DIR.ASC ? SORT_DIR.DESC : SORT_DIR.ASC);
+    } else {
+      setSortKey(key);
+      setSortDir(SORT_DIR.ASC);
+    }
+  }
+
+  function clearFilters() {
+    setSector("");
+    setIndustry("");
+    setSearch("");
+  }
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10">
@@ -106,16 +159,39 @@ export default function HomePage() {
           placeholder="Hisse veya şirket ara..."
           className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
         />
+
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="text-sm text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg px-4 py-2 transition-colors"
+          >
+            Filtreleri Temizle
+          </button>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-700 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-700 bg-slate-800/50">
-              <th className={thClass}>Ticker</th>
-              <th className={thClass}>Şirket</th>
-              <th className={thClass}>Sektör</th>
-              <th className={thClass}>Endüstri</th>
+              <th
+                className={thClass}
+                onClick={() => handleSort(SORT_KEY.TICKER)}
+              >
+                Ticker{sortIndicator(sortKey === SORT_KEY.TICKER, sortDir)}
+              </th>
+              <th className={thClass} onClick={() => handleSort(SORT_KEY.NAME)}>
+                Şirket{sortIndicator(sortKey === SORT_KEY.NAME, sortDir)}
+              </th>
+              <th
+                className={thClass}
+                onClick={() => handleSort(SORT_KEY.SECTOR)}
+              >
+                Sektör{sortIndicator(sortKey === SORT_KEY.SECTOR, sortDir)}
+              </th>
+              <th className="text-left px-4 py-3 text-slate-400 font-medium">
+                Endüstri
+              </th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
