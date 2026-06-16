@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { fetchStockDetail, saveOverride } from "../lib/api";
 import type { StockDetail } from "../lib/types";
+import PriceChart from "../components/PriceChart";
 import {
   formatPrice,
   formatLargeNumber,
@@ -274,6 +275,11 @@ export default function StockDetailPage() {
         >
           Geri
         </button>
+      </div>
+
+      {/* Fiyat Grafiği */}
+      <div className="mb-8">
+        <PriceChart ticker={ticker ?? ""} />
       </div>
 
       {/* Değerleme */}

@@ -16,7 +16,9 @@ import (
 
 const (
 	baseURL     = "https://query1.finance.yahoo.com/v10/finance/quoteSummary"
+	chartURL    = "https://query1.finance.yahoo.com/v8/finance/chart"
 	cacheTTL    = 5 * time.Minute
+	historyTTL  = 15 * time.Minute
 	httpTimeout = 15 * time.Second
 )
 
@@ -25,12 +27,18 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
+type historyCacheEntry struct {
+	points    []model.HistoryPoint
+	expiresAt time.Time
+}
+
 type YahooFinanceClient struct {
-	httpClient *http.Client
-	crumb      string
-	crumbMu    sync.Mutex
-	cache      map[string]*cacheEntry
-	mu         sync.Mutex
+	httpClient   *http.Client
+	crumb        string
+	crumbMu      sync.Mutex
+	cache        map[string]*cacheEntry
+	historyCache map[string]*historyCacheEntry
+	mu           sync.Mutex
 }
 
 func NewYahooFinanceClient() *YahooFinanceClient {
@@ -40,7 +48,8 @@ func NewYahooFinanceClient() *YahooFinanceClient {
 			Timeout: httpTimeout,
 			Jar:     jar,
 		},
-		cache: make(map[string]*cacheEntry),
+		cache:        make(map[string]*cacheEntry),
+		historyCache: make(map[string]*historyCacheEntry),
 	}
 }
 
@@ -196,7 +205,7 @@ type yahooResponse struct {
 				} `json:"totalDebt"`
 			} `json:"financialData"`
 		} `json:"result"`
-		Error interface{} `json:"error"`
+		Error any `json:"error"`
 	} `json:"quoteSummary"`
 }
 
@@ -296,4 +305,117 @@ func (c *YahooFinanceClient) fetchStockData(symbol string) (*model.StockData, er
 	}
 
 	return data, nil
+}
+
+// validHistoryRanges maps allowed user-facing range values to Yahoo's
+// chart API range/interval parameters.
+var validHistoryRanges = map[string]string{
+	"1mo": "1d",
+	"3mo": "1d",
+	"6mo": "1d",
+	"1y":  "1wk",
+	"5y":  "1mo",
+}
+
+type chartResponse struct {
+	Chart struct {
+		Result []struct {
+			Timestamp  []int64 `json:"timestamp"`
+			Indicators struct {
+				Quote []struct {
+					Close []*float64 `json:"close"`
+				} `json:"quote"`
+			} `json:"indicators"`
+		} `json:"result"`
+		Error any `json:"error"`
+	} `json:"chart"`
+}
+
+// GetHistory returns historical closing prices for symbol over rangeParam
+// (one of: 1mo, 3mo, 6mo, 1y, 5y). Results are cached in-memory.
+func (c *YahooFinanceClient) GetHistory(symbol, rangeParam string) ([]model.HistoryPoint, error) {
+	interval, ok := validHistoryRanges[rangeParam]
+	if !ok {
+		return nil, fmt.Errorf("invalid range %q", rangeParam)
+	}
+
+	cacheKey := symbol + ":" + rangeParam
+	c.mu.Lock()
+	if entry, ok := c.historyCache[cacheKey]; ok && time.Now().Before(entry.expiresAt) {
+		c.mu.Unlock()
+		return entry.points, nil
+	}
+	c.mu.Unlock()
+
+	if err := c.initSession(); err != nil {
+		return nil, err
+	}
+
+	points, err := c.fetchHistory(symbol, rangeParam, interval)
+	if err != nil {
+		return nil, err
+	}
+
+	c.mu.Lock()
+	c.historyCache[cacheKey] = &historyCacheEntry{points: points, expiresAt: time.Now().Add(historyTTL)}
+	c.mu.Unlock()
+
+	return points, nil
+}
+
+func (c *YahooFinanceClient) fetchHistory(symbol, rangeParam, interval string) ([]model.HistoryPoint, error) {
+	apiURL, _ := url.Parse(fmt.Sprintf("%s/%s", chartURL, symbol))
+	q := apiURL.Query()
+	q.Set("range", rangeParam)
+	q.Set("interval", interval)
+	q.Set("crumb", c.crumb)
+	apiURL.RawQuery = q.Encode()
+
+	req, _ := http.NewRequest("GET", apiURL.String(), nil)
+	for k, v := range browserHeaders {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("history request failed for %s: %w", symbol, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		c.crumbMu.Lock()
+		c.crumb = ""
+		c.crumbMu.Unlock()
+		return nil, fmt.Errorf("authentication error for %s history (status %d)", symbol, resp.StatusCode)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("yahoo finance chart returned status %d for %s", resp.StatusCode, symbol)
+	}
+
+	var cr chartResponse
+	if err := json.NewDecoder(resp.Body).Decode(&cr); err != nil {
+		return nil, fmt.Errorf("failed to decode history response for %s: %w", symbol, err)
+	}
+
+	if len(cr.Chart.Result) == 0 || len(cr.Chart.Result[0].Indicators.Quote) == 0 {
+		return nil, fmt.Errorf("no history data found for symbol %s", symbol)
+	}
+
+	res := cr.Chart.Result[0]
+	closes := res.Indicators.Quote[0].Close
+
+	points := make([]model.HistoryPoint, 0, len(res.Timestamp))
+	for i, ts := range res.Timestamp {
+		if i >= len(closes) || closes[i] == nil {
+			continue
+		}
+		points = append(points, model.HistoryPoint{
+			Date:  time.Unix(ts, 0).UTC().Format("2006-01-02"),
+			Close: *closes[i],
+		})
+	}
+
+	return points, nil
 }

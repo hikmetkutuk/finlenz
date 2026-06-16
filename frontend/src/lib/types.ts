@@ -39,6 +39,11 @@ export interface StockDetail extends StockData {
   industry: string;
 }
 
+export interface HistoryPoint {
+  date: string;
+  close: number;
+}
+
 export interface CompareResponse {
   data: StockData[];
   error: string | null;

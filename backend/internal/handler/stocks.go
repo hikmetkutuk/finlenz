@@ -94,3 +94,29 @@ func (h *StocksHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		log.Printf("detail encode error for %s: %v", ticker, err)
 	}
 }
+
+// History handles GET /api/stocks/{ticker}/history?range=1mo
+func (h *StocksHandler) History(w http.ResponseWriter, r *http.Request) {
+	ticker := strings.TrimSpace(r.PathValue("ticker"))
+	if ticker == "" {
+		writeError(w, "ticker required", http.StatusBadRequest)
+		return
+	}
+
+	rangeParam := r.URL.Query().Get("range")
+	if rangeParam == "" {
+		rangeParam = "3mo"
+	}
+
+	yfSymbol := ticker + ".IS"
+	points, err := h.yfClient.GetHistory(yfSymbol, rangeParam)
+	if err != nil {
+		writeError(w, fmt.Sprintf("failed to fetch history: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(points); err != nil {
+		log.Printf("history encode error for %s: %v", ticker, err)
+	}
+}

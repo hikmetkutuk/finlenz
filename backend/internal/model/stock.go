@@ -35,6 +35,11 @@ type StockDetailResponse struct {
 	Industry string `json:"industry"`
 }
 
+type HistoryPoint struct {
+	Date  string  `json:"date"`
+	Close float64 `json:"close"`
+}
+
 type CompareResponse struct {
 	Data      []*StockData `json:"data"`
 	Error     *string      `json:"error"`
