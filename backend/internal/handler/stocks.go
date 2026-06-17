@@ -13,6 +13,7 @@ import (
 	"github.com/hikmetkutuk/finlenz/backend/internal/client"
 	"github.com/hikmetkutuk/finlenz/backend/internal/model"
 	"github.com/hikmetkutuk/finlenz/backend/internal/repository"
+	"github.com/hikmetkutuk/finlenz/backend/internal/service"
 )
 
 const (
@@ -21,12 +22,17 @@ const (
 )
 
 type StocksHandler struct {
-	repo     *repository.StockRepository
-	yfClient *client.YahooFinanceClient
+	repo         *repository.StockRepository
+	yfClient     *client.YahooFinanceClient
+	sectorAvgSvc *service.SectorAveragesService
 }
 
-func NewStocksHandler(repo *repository.StockRepository, yf *client.YahooFinanceClient) *StocksHandler {
-	return &StocksHandler{repo: repo, yfClient: yf}
+func NewStocksHandler(
+	repo *repository.StockRepository,
+	yf *client.YahooFinanceClient,
+	sectorAvgSvc *service.SectorAveragesService,
+) *StocksHandler {
+	return &StocksHandler{repo: repo, yfClient: yf, sectorAvgSvc: sectorAvgSvc}
 }
 
 func (h *StocksHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +98,26 @@ func (h *StocksHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Printf("detail encode error for %s: %v", ticker, err)
+	}
+}
+
+// SectorAverages handles GET /api/sectors/{sector}/averages
+func (h *StocksHandler) SectorAverages(w http.ResponseWriter, r *http.Request) {
+	sector := strings.TrimSpace(r.PathValue("sector"))
+	if sector == "" {
+		writeError(w, "sector required", http.StatusBadRequest)
+		return
+	}
+
+	avg := h.sectorAvgSvc.Get(sector)
+	if avg == nil {
+		writeError(w, "sector averages not yet computed, try again later", http.StatusServiceUnavailable)
+		return
+	}
+
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(avg); err != nil {
+		log.Printf("sector averages encode error for %s: %v", sector, err)
 	}
 }
 

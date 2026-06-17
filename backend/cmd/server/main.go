@@ -38,8 +38,11 @@ func main() {
 	go syncSvc.Run(ctx)
 
 	yf := client.NewYahooFinanceClient()
+	sectorAvgSvc := service.NewSectorAveragesService(stockRepo, yf)
+	go sectorAvgSvc.Run(ctx)
+
 	stockHandler := handler.NewStockHandler(yf)
-	stocksHandler := handler.NewStocksHandler(stockRepo, yf)
+	stocksHandler := handler.NewStocksHandler(stockRepo, yf, sectorAvgSvc)
 	adminHandler := handler.NewAdminHandler(stockRepo)
 
 	mux := http.NewServeMux()
@@ -48,6 +51,7 @@ func main() {
 	mux.HandleFunc("/api/stocks/{ticker}/history", stocksHandler.History)
 	mux.HandleFunc("/api/stocks/", stocksHandler.Detail)
 	mux.HandleFunc("/api/sectors", stocksHandler.Sectors)
+	mux.HandleFunc("/api/sectors/{sector}/averages", stocksHandler.SectorAverages)
 	adminRoutes := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPut:

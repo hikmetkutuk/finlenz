@@ -1,8 +1,13 @@
 import { useEffect, useReducer, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { fetchStockDetail, saveOverride } from "../lib/api";
-import type { StockDetail } from "../lib/types";
+import {
+  fetchStockDetail,
+  fetchSectorAverages,
+  saveOverride,
+} from "../lib/api";
+import type { SectorAverages, StockDetail } from "../lib/types";
 import PriceChart from "../components/PriceChart";
+import BacktestSection from "../components/BacktestSection";
 import {
   formatPrice,
   formatLargeNumber,
@@ -60,6 +65,7 @@ interface MetricCardProps {
   readonly value: string;
   readonly sub?: string;
   readonly highlight?: Highlight;
+  readonly sectorAvg?: string;
 }
 
 const HIGHLIGHT_COLOR: Record<Highlight, string> = {
@@ -68,7 +74,13 @@ const HIGHLIGHT_COLOR: Record<Highlight, string> = {
   [HIGHLIGHT.NEUTRAL]: "text-white",
 };
 
-function MetricCard({ label, value, sub, highlight }: MetricCardProps) {
+function MetricCard({
+  label,
+  value,
+  sub,
+  highlight,
+  sectorAvg,
+}: MetricCardProps) {
   const valueColor =
     highlight == null ? "text-white" : HIGHLIGHT_COLOR[highlight];
 
@@ -79,6 +91,9 @@ function MetricCard({ label, value, sub, highlight }: MetricCardProps) {
       </p>
       <p className={`text-lg font-semibold ${valueColor}`}>{value}</p>
       {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
+      {sectorAvg && (
+        <p className="text-slate-600 text-xs mt-1">Sektör ort. {sectorAvg}</p>
+      )}
     </div>
   );
 }
@@ -96,10 +111,48 @@ function sectionTitle(title: string) {
   );
 }
 
+// fmtAvg formats a sector average value for display, returning undefined when absent.
+// Uses positive null-check (== null) to satisfy S7735 (no negated conditions).
+function fmtAvg(
+  value: number | null | undefined,
+  fn: (v: number) => string,
+): string | undefined {
+  if (value == null) return undefined;
+  return fn(value);
+}
+
+const SECTOR_AVG_MAX_RETRIES = 5;
+const SECTOR_AVG_RETRY_MS = 30_000;
+
+// pollSectorAverages retries fetching sector averages until data is available
+// or the maximum attempt count is reached. Handles the backend 2-minute warmup.
+function pollSectorAverages(
+  sector: string,
+  onSuccess: (avg: SectorAverages) => void,
+  isCancelled: () => boolean,
+  attempt = 0,
+): void {
+  if (isCancelled()) return;
+  fetchSectorAverages(sector)
+    .then((avg) => {
+      if (isCancelled()) return;
+      if (avg !== null) {
+        onSuccess(avg);
+      } else if (attempt < SECTOR_AVG_MAX_RETRIES) {
+        setTimeout(
+          () => pollSectorAverages(sector, onSuccess, isCancelled, attempt + 1),
+          SECTOR_AVG_RETRY_MS,
+        );
+      }
+    })
+    .catch(() => {});
+}
+
 export default function StockDetailPage() {
   const { ticker } = useParams<{ ticker: string }>();
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, { status: STATUS.IDLE });
+  const [sectorAvg, setSectorAvg] = useState<SectorAverages | null>(null);
   const [editing, setEditing] = useState(false);
   const [editSector, setEditSector] = useState("");
   const [editIndustry, setEditIndustry] = useState("");
@@ -109,10 +162,18 @@ export default function StockDetailPage() {
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
+    // P2: clear stale sector averages immediately when ticker changes
+    setSectorAvg(null);
     dispatch({ type: ACTION.FETCH });
     fetchStockDetail(ticker)
       .then((data) => {
-        if (!cancelled) dispatch({ type: ACTION.SUCCESS, data });
+        if (cancelled) return;
+        dispatch({ type: ACTION.SUCCESS, data });
+        pollSectorAverages(
+          data.sector,
+          (avg) => setSectorAvg(avg),
+          () => cancelled,
+        );
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -285,9 +346,21 @@ export default function StockDetailPage() {
       {/* Değerleme */}
       {sectionTitle("Değerleme")}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricCard label="F/K Oranı" value={formatMultiple(d.peRatio)} />
-        <MetricCard label="PD/DD" value={formatMultiple(d.pbRatio)} />
-        <MetricCard label="FD/FAVÖK" value={formatMultiple(d.evToEBITDA)} />
+        <MetricCard
+          label="F/K Oranı"
+          value={formatMultiple(d.peRatio)}
+          sectorAvg={fmtAvg(sectorAvg?.peRatio, formatMultiple)}
+        />
+        <MetricCard
+          label="PD/DD"
+          value={formatMultiple(d.pbRatio)}
+          sectorAvg={fmtAvg(sectorAvg?.pbRatio, formatMultiple)}
+        />
+        <MetricCard
+          label="FD/FAVÖK"
+          value={formatMultiple(d.evToEBITDA)}
+          sectorAvg={fmtAvg(sectorAvg?.evToEBITDA, formatMultiple)}
+        />
         <MetricCard
           label="Piyasa Değeri"
           value={formatLargeNumber(d.marketCap, d.currency)}
@@ -323,26 +396,31 @@ export default function StockDetailPage() {
           label="Brüt Kâr Marjı"
           value={formatPercent(d.grossMargin)}
           highlight={signHighlight(d.grossMargin)}
+          sectorAvg={fmtAvg(sectorAvg?.grossMargin, formatPercent)}
         />
         <MetricCard
           label="FAVÖK Marjı"
           value={formatPercent(d.ebitdaMargin)}
           highlight={signHighlight(d.ebitdaMargin)}
+          sectorAvg={fmtAvg(sectorAvg?.ebitdaMargin, formatPercent)}
         />
         <MetricCard
           label="Net Kâr Marjı"
           value={formatPercent(d.netMargin)}
           highlight={signHighlight(d.netMargin)}
+          sectorAvg={fmtAvg(sectorAvg?.netMargin, formatPercent)}
         />
         <MetricCard
           label="Özkaynak Karlılığı"
           value={formatPercent(d.roe)}
           highlight={signHighlight(d.roe)}
+          sectorAvg={fmtAvg(sectorAvg?.roe, formatPercent)}
         />
         <MetricCard
           label="Aktif Karlılık"
           value={formatPercent(d.roa)}
           highlight={signHighlight(d.roa)}
+          sectorAvg={fmtAvg(sectorAvg?.roa, formatPercent)}
         />
         <MetricCard
           label="ROIC"
@@ -358,15 +436,23 @@ export default function StockDetailPage() {
           label="Cari Oran"
           value={formatMultiple(d.currentRatio)}
           highlight={signHighlight(d.currentRatio)}
+          sectorAvg={fmtAvg(sectorAvg?.currentRatio, formatMultiple)}
         />
         <MetricCard
           label="Borç / Özsermaye"
           value={formatMultiple(d.debtToEquity)}
+          sectorAvg={fmtAvg(sectorAvg?.debtToEquity, formatMultiple)}
         />
         <MetricCard
           label="Net Borç / FAVÖK"
           value={formatMultiple(d.netDebtToEBITDA)}
+          sectorAvg={fmtAvg(sectorAvg?.netDebtToEBITDA, formatMultiple)}
         />
+      </div>
+
+      {/* Yatırım Simülasyonu */}
+      <div className="mt-8">
+        <BacktestSection ticker={ticker ?? ""} currency={d.currency} />
       </div>
     </main>
   );

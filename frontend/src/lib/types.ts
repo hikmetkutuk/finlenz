@@ -39,6 +39,22 @@ export interface StockDetail extends StockData {
   industry: string;
 }
 
+export interface SectorAverages {
+  sector: string;
+  stockCount: number;
+  peRatio?: number;
+  pbRatio?: number;
+  evToEBITDA?: number;
+  grossMargin?: number;
+  ebitdaMargin?: number;
+  netMargin?: number;
+  roe?: number;
+  roa?: number;
+  currentRatio?: number;
+  debtToEquity?: number;
+  netDebtToEBITDA?: number;
+}
+
 export interface HistoryPoint {
   date: string;
   close: number;

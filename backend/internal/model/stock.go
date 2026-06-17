@@ -40,6 +40,27 @@ type HistoryPoint struct {
 	Close float64 `json:"close"`
 }
 
+// SectorAverages holds mean values of key metrics across all stocks in a sector.
+// Fields are nil when no data is available.
+type SectorAverages struct {
+	Sector     string `json:"sector"`
+	StockCount int    `json:"stockCount"`
+	// Değerleme
+	PERatio    *float64 `json:"peRatio"`
+	PBRatio    *float64 `json:"pbRatio"`
+	EVToEBITDA *float64 `json:"evToEBITDA"`
+	// Kârlılık
+	GrossMargin  *float64 `json:"grossMargin"`
+	EBITDAMargin *float64 `json:"ebitdaMargin"`
+	NetMargin    *float64 `json:"netMargin"`
+	ROE          *float64 `json:"roe"`
+	ROA          *float64 `json:"roa"`
+	// Borçluluk
+	CurrentRatio    *float64 `json:"currentRatio"`
+	DebtToEquity    *float64 `json:"debtToEquity"`
+	NetDebtToEBITDA *float64 `json:"netDebtToEBITDA"`
+}
+
 type CompareResponse struct {
 	Data      []*StockData `json:"data"`
 	Error     *string      `json:"error"`

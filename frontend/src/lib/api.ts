@@ -1,6 +1,7 @@
 import type {
   CompareResponse,
   HistoryPoint,
+  SectorAverages,
   StockDetail,
   StockListItem,
 } from "./types";
@@ -24,6 +25,17 @@ export async function fetchStocks(sector?: string): Promise<StockListItem[]> {
 
 export async function fetchStockDetail(ticker: string): Promise<StockDetail> {
   const resp = await fetch(`/api/stocks/${encodeURIComponent(ticker)}`);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+export async function fetchSectorAverages(
+  sector: string,
+): Promise<SectorAverages | null> {
+  const resp = await fetch(
+    `/api/sectors/${encodeURIComponent(sector)}/averages`,
+  );
+  if (resp.status === 503) return null; // not yet computed
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }
