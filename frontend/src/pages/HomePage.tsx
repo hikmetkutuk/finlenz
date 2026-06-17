@@ -7,6 +7,27 @@ import { translateSector, translateIndustry } from "../lib/utils";
 const thClass =
   "text-left px-4 py-3 text-slate-400 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors";
 
+const PAGE_SIZE = 50;
+
+type PageItem =
+  | { kind: "page"; num: number }
+  | { kind: "ellipsis"; key: string };
+
+function buildPageItems(current: number, total: number): PageItem[] {
+  const items: PageItem[] = [];
+  let prev: number | null = null;
+  for (let p = 1; p <= total; p++) {
+    if (p === 1 || p === total || Math.abs(p - current) <= 2) {
+      if (prev !== null && p - prev > 1) {
+        items.push({ kind: "ellipsis", key: `gap-after-${prev}` });
+      }
+      items.push({ kind: "page", num: p });
+      prev = p;
+    }
+  }
+  return items;
+}
+
 const SORT_KEY = {
   TICKER: "Ticker",
   NAME: "Name",
@@ -37,6 +58,7 @@ export default function HomePage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>(SORT_KEY.TICKER);
   const [sortDir, setSortDir] = useState<SortDir>(SORT_DIR.ASC);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search), 200);
@@ -99,6 +121,8 @@ export default function HomePage() {
   }, [stocks, industry, debouncedSearch, sortKey, sortDir]);
 
   const hasActiveFilters = sector !== "" || industry !== "" || search !== "";
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -107,26 +131,32 @@ export default function HomePage() {
       setSortKey(key);
       setSortDir(SORT_DIR.ASC);
     }
+    setPage(1);
   }
 
   function clearFilters() {
     setSector("");
     setIndustry("");
     setSearch("");
+    setPage(1);
+  }
+
+  function handleSectorChangeWithReset(value: string) {
+    handleSectorChange(value);
+    setPage(1);
   }
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10">
       <div className="mb-8">
         <h2 className="text-2xl font-semibold text-white mb-1">Hisseler</h2>
-        <p className="text-slate-400 text-sm">{filtered.length} hisse</p>
       </div>
 
       <div className="flex gap-3 mb-6 flex-wrap">
         <select
           aria-label="Sektör filtresi"
           value={sector}
-          onChange={(e) => handleSectorChange(e.target.value)}
+          onChange={(e) => handleSectorChangeWithReset(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
         >
           <option value="">Tüm Sektörler</option>
@@ -155,7 +185,10 @@ export default function HomePage() {
 
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           placeholder="Hisse veya şirket ara..."
           className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
         />
@@ -196,7 +229,7 @@ export default function HomePage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => (
+            {paginated.map((s) => (
               <tr
                 key={s.Ticker}
                 className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
@@ -236,6 +269,65 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-slate-500 text-sm">
+            {(page - 1) * PAGE_SIZE + 1}–
+            {Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length}{" "}
+            hisse
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="px-2 py-1 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ‹ Önceki
+            </button>
+            {buildPageItems(page, totalPages).map((item) =>
+              item.kind === "ellipsis" ? (
+                <span key={item.key} className="px-2 text-slate-600 text-sm">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item.num}
+                  onClick={() => setPage(item.num)}
+                  className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                    page === item.num
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700"
+                  }`}
+                >
+                  {item.num}
+                </button>
+              ),
+            )}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Sonraki ›
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="px-2 py-1 text-sm text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              »
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

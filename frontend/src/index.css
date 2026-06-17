@@ -10,3 +10,14 @@ body {
   color: #e2e8f0;
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+button,
+[role="button"],
+select,
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
