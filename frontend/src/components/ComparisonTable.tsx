@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react";
-import type { StockData } from "../lib/types";
+import { useEffect, useState, type CSSProperties } from "react";
+import { fetchPiotroskiScore } from "../lib/api";
+import type { PiotroskiScore, StockData } from "../lib/types";
 import {
   formatLargeNumber,
   formatMultiple,
@@ -160,8 +161,47 @@ function gridStyle(count: number): CSSProperties {
   return { gridTemplateColumns: `minmax(8rem, 1fr) repeat(${count}, 1fr)` };
 }
 
+// loadPiotroskiFor fetches the score for one ticker and reports the result
+// via onSettled, unless isCancelled() has become true in the meantime.
+// Extracted to module scope to keep nesting shallow inside the effect.
+function loadPiotroskiFor(
+  ticker: string,
+  onSettled: (ticker: string, score: PiotroskiScore | null) => void,
+  isCancelled: () => boolean,
+): void {
+  const bareTicker = ticker.split(".")[0];
+  fetchPiotroskiScore(bareTicker)
+    .then((score) => {
+      if (!isCancelled()) onSettled(ticker, score);
+    })
+    .catch(() => {
+      if (!isCancelled()) onSettled(ticker, null);
+    });
+}
+
 export default function ComparisonTable({ stocks }: Props) {
   const style = gridStyle(stocks.length);
+  const [piotroski, setPiotroski] = useState<
+    Record<string, PiotroskiScore | null>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    setPiotroski({});
+    const onSettled = (ticker: string, score: PiotroskiScore | null) => {
+      setPiotroski((prev) => ({ ...prev, [ticker]: score }));
+    };
+    stocks.forEach((s) =>
+      loadPiotroskiFor(s.ticker, onSettled, () => cancelled),
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stocks.map((s) => s.ticker).join(",")]);
+
+  const piotroskiValues = stocks.map((s) => piotroski[s.ticker]?.score);
+  const bestPiotroski = bestValue(piotroskiValues, "higher");
 
   return (
     <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
@@ -172,7 +212,7 @@ export default function ComparisonTable({ stocks }: Props) {
           const positive = s.percentChange >= 0;
           return (
             <div key={s.ticker} className="text-center">
-              <div className="text-xl font-bold text-blue-400">
+              <div className="text-xl font-bold text-[#b347ff]">
                 {s.ticker.split(".")[0]}
               </div>
               <div className="text-xs text-slate-400 mt-1 truncate">
@@ -193,6 +233,52 @@ export default function ComparisonTable({ stocks }: Props) {
             </div>
           );
         })}
+      </div>
+
+      {/* Piotroski F-Score */}
+      <div>
+        <div className="px-6 py-3 text-xs font-semibold tracking-widest text-slate-500 bg-slate-800/50">
+          FAALİYET KALİTESİ
+        </div>
+        <div
+          className="grid gap-4 px-6 py-3 border-t border-slate-800 hover:bg-slate-800/30 transition-colors items-center"
+          style={style}
+        >
+          <div className="text-sm text-slate-300">Piotroski F-Score</div>
+          {stocks.map((s) => {
+            const score = piotroski[s.ticker];
+            const isBest =
+              bestPiotroski != null && score?.score === bestPiotroski;
+            if (score === undefined) {
+              return (
+                <div
+                  key={s.ticker}
+                  className="text-sm text-center text-slate-600"
+                >
+                  ...
+                </div>
+              );
+            }
+            if (score === null) {
+              return (
+                <div
+                  key={s.ticker}
+                  className="text-sm text-center text-slate-600"
+                >
+                  N/A
+                </div>
+              );
+            }
+            return (
+              <div
+                key={s.ticker}
+                className={`text-sm text-center font-medium ${isBest ? "text-green-400" : "text-slate-200"}`}
+              >
+                {score.score}/{score.maxScore}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Sections */}

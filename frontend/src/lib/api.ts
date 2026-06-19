@@ -1,6 +1,7 @@
 import type {
   CompareResponse,
   HistoryPoint,
+  PiotroskiScore,
   SectorAverages,
   StockDetail,
   StockListItem,
@@ -46,6 +47,16 @@ export async function fetchStockHistory(
 ): Promise<HistoryPoint[]> {
   const resp = await fetch(
     `/api/stocks/${encodeURIComponent(ticker)}/history?range=${encodeURIComponent(range)}`,
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+export async function fetchPiotroskiScore(
+  ticker: string,
+): Promise<PiotroskiScore> {
+  const resp = await fetch(
+    `/api/stocks/${encodeURIComponent(ticker)}/piotroski`,
   );
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();

@@ -70,12 +70,12 @@ export default function StockPicker({ label, value, onChange }: Props) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`w-full text-left bg-slate-800 border rounded-lg px-3 py-2.5 text-sm transition-colors flex items-center justify-between gap-2 ${
-          open ? "border-blue-500" : "border-slate-700 hover:border-slate-600"
+          open ? "border-[#b347ff]" : "border-slate-700 hover:border-slate-600"
         }`}
       >
         {selected ? (
           <span className="flex items-center gap-2 min-w-0">
-            <span className="font-semibold text-blue-400 shrink-0">
+            <span className="font-semibold text-[#b347ff] shrink-0">
               {selected.Ticker}
             </span>
             <span className="text-slate-400 text-xs truncate">
@@ -97,7 +97,7 @@ export default function StockPicker({ label, value, onChange }: Props) {
                 setSector(e.target.value);
                 onChange("");
               }}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#b347ff]"
             >
               <option value="">Tüm Sektörler</option>
               {sectors.map((s) => (
@@ -111,7 +111,7 @@ export default function StockPicker({ label, value, onChange }: Props) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Hisse ara..."
-              className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#b347ff]"
             />
           </div>
 
@@ -128,7 +128,7 @@ export default function StockPicker({ label, value, onChange }: Props) {
                   onClick={() => selectTicker(s.Ticker)}
                   className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-700 transition-colors border-b border-slate-700/60 last:border-0 flex items-center gap-2 min-w-0 ${
                     value === s.Ticker
-                      ? "bg-blue-900/40 text-blue-300"
+                      ? "bg-[#9D00FF]/20 text-[#d9a3ff]"
                       : "text-slate-200"
                   }`}
                 >

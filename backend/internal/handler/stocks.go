@@ -19,6 +19,7 @@ import (
 const (
 	contentTypeHeader = "Content-Type"
 	contentTypeJSON   = "application/json"
+	errTickerRequired = "ticker required"
 )
 
 type StocksHandler struct {
@@ -67,7 +68,7 @@ func (h *StocksHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	ticker := strings.TrimPrefix(r.URL.Path, "/api/stocks/")
 	ticker = strings.TrimSpace(ticker)
 	if ticker == "" {
-		writeError(w, "ticker required", http.StatusBadRequest)
+		writeError(w, errTickerRequired, http.StatusBadRequest)
 		return
 	}
 
@@ -121,11 +122,32 @@ func (h *StocksHandler) SectorAverages(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Piotroski handles GET /api/stocks/{ticker}/piotroski
+func (h *StocksHandler) Piotroski(w http.ResponseWriter, r *http.Request) {
+	ticker := strings.TrimSpace(r.PathValue("ticker"))
+	if ticker == "" {
+		writeError(w, errTickerRequired, http.StatusBadRequest)
+		return
+	}
+
+	yfSymbol := ticker + ".IS"
+	score, err := h.yfClient.GetPiotroskiScore(yfSymbol)
+	if err != nil {
+		writeError(w, fmt.Sprintf("failed to compute piotroski score: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if err := json.NewEncoder(w).Encode(score); err != nil {
+		log.Printf("piotroski encode error for %s: %v", ticker, err)
+	}
+}
+
 // History handles GET /api/stocks/{ticker}/history?range=1mo
 func (h *StocksHandler) History(w http.ResponseWriter, r *http.Request) {
 	ticker := strings.TrimSpace(r.PathValue("ticker"))
 	if ticker == "" {
-		writeError(w, "ticker required", http.StatusBadRequest)
+		writeError(w, errTickerRequired, http.StatusBadRequest)
 		return
 	}
 

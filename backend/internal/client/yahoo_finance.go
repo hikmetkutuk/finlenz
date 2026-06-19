@@ -33,12 +33,14 @@ type historyCacheEntry struct {
 }
 
 type YahooFinanceClient struct {
-	httpClient   *http.Client
-	crumb        string
-	crumbMu      sync.Mutex
-	cache        map[string]*cacheEntry
-	historyCache map[string]*historyCacheEntry
-	mu           sync.Mutex
+	httpClient     *http.Client
+	crumb          string
+	crumbMu        sync.Mutex
+	cache          map[string]*cacheEntry
+	historyCache   map[string]*historyCacheEntry
+	piotroskiCache map[string]*piotroskiCacheEntry
+	mu             sync.Mutex
+	piotroskiMu    sync.Mutex
 }
 
 func NewYahooFinanceClient() *YahooFinanceClient {
@@ -48,8 +50,9 @@ func NewYahooFinanceClient() *YahooFinanceClient {
 			Timeout: httpTimeout,
 			Jar:     jar,
 		},
-		cache:        make(map[string]*cacheEntry),
-		historyCache: make(map[string]*historyCacheEntry),
+		cache:          make(map[string]*cacheEntry),
+		historyCache:   make(map[string]*historyCacheEntry),
+		piotroskiCache: make(map[string]*piotroskiCacheEntry),
 	}
 }
 

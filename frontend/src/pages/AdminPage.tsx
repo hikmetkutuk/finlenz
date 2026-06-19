@@ -96,7 +96,7 @@ export default function AdminPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Ticker, şirket, sektör veya endüstri ara..."
-          className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#b347ff]"
         />
       </div>
 
@@ -120,7 +120,7 @@ export default function AdminPage() {
                   key={s.Ticker}
                   className={`border-b border-slate-800 transition-colors ${isEditing ? "bg-slate-800/60" : "hover:bg-slate-800/30"}`}
                 >
-                  <td className="px-4 py-3 font-semibold text-blue-400 shrink-0">
+                  <td className="px-4 py-3 font-semibold text-[#b347ff] shrink-0">
                     {s.Ticker}
                     {isSaved && (
                       <span className="ml-2 text-xs text-green-400">✓</span>
@@ -138,7 +138,7 @@ export default function AdminPage() {
                             prev ? { ...prev, sector: e.target.value } : prev,
                           )
                         }
-                        className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm text-white w-full focus:outline-none focus:border-blue-500"
+                        className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm text-white w-full focus:outline-none focus:border-[#b347ff]"
                       />
                     ) : (
                       <span className="text-slate-300">
@@ -155,7 +155,7 @@ export default function AdminPage() {
                             prev ? { ...prev, industry: e.target.value } : prev,
                           )
                         }
-                        className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm text-white w-full focus:outline-none focus:border-blue-500"
+                        className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm text-white w-full focus:outline-none focus:border-[#b347ff]"
                       />
                     ) : (
                       <span className="text-slate-500 text-xs">
@@ -169,7 +169,7 @@ export default function AdminPage() {
                         <button
                           onClick={handleSave}
                           disabled={saving}
-                          className="text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-3 py-1 rounded transition-colors"
+                          className="text-xs bg-[#9D00FF] hover:bg-[#b347ff] disabled:opacity-50 text-white px-3 py-1 rounded transition-colors"
                         >
                           {saving ? "..." : "Kaydet"}
                         </button>
@@ -184,7 +184,7 @@ export default function AdminPage() {
                       <div className="flex gap-2 justify-end">
                         <button
                           onClick={() => startEdit(s)}
-                          className="text-xs text-slate-500 hover:text-blue-400 px-2 py-1 rounded hover:bg-slate-700 transition-colors"
+                          className="text-xs text-slate-500 hover:text-[#b347ff] px-2 py-1 rounded hover:bg-slate-700 transition-colors"
                         >
                           Düzenle
                         </button>

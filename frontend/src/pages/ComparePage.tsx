@@ -201,7 +201,7 @@ export default function ComparePage() {
         <button
           onClick={handleCompare}
           disabled={state.status === STATUS.LOADING || filledCount < MIN_STOCKS}
-          className="w-full mt-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+          className="w-full mt-4 bg-[#9D00FF] hover:bg-[#b347ff] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
         >
           {state.status === STATUS.LOADING ? "Yükleniyor..." : "Karşılaştır"}
         </button>

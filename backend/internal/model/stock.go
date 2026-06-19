@@ -61,6 +61,21 @@ type SectorAverages struct {
 	NetDebtToEBITDA *float64 `json:"netDebtToEBITDA"`
 }
 
+// PiotroskiCriterion is a single pass/fail test within the F-Score.
+type PiotroskiCriterion struct {
+	Label string `json:"label"`
+	Pass  bool   `json:"pass"`
+}
+
+// PiotroskiScore is Joseph Piotroski's 9-point fundamental strength score,
+// computed from two consecutive fiscal years of financial statement data.
+type PiotroskiScore struct {
+	Score      int                  `json:"score"`
+	MaxScore   int                  `json:"maxScore"`
+	FiscalYear string               `json:"fiscalYear"`
+	Criteria   []PiotroskiCriterion `json:"criteria"`
+}
+
 type CompareResponse struct {
 	Data      []*StockData `json:"data"`
 	Error     *string      `json:"error"`

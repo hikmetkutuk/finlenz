@@ -8,6 +8,7 @@ import {
 import type { SectorAverages, StockDetail } from "../lib/types";
 import PriceChart from "../components/PriceChart";
 import BacktestSection from "../components/BacktestSection";
+import PiotroskiScoreCard from "../components/PiotroskiScoreCard";
 import {
   formatPrice,
   formatLargeNumber,
@@ -252,95 +253,96 @@ export default function StockDetailPage() {
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-white">{ticker}</h2>
-          <p className="text-slate-400 mt-1">{d.companyName}</p>
-          {editing ? (
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <input
-                value={editSector}
-                onChange={(e) => setEditSector(e.target.value)}
-                placeholder="Sektör"
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 w-40"
-              />
-              <input
-                value={editIndustry}
-                onChange={(e) => setEditIndustry(e.target.value)}
-                placeholder="Endüstri"
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 w-48"
-              />
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
-              >
-                {saving ? "..." : "✓ Kaydet"}
-              </button>
-              <button
-                onClick={cancelEdit}
-                className="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
-              >
-                İptal
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="inline-block bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm font-medium">
-                  {translateSector(d.sector)}
+      <div className="mb-8">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-3xl font-bold text-white">{ticker}</h2>
+            <p className="text-slate-400 mt-1">{d.companyName}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-white">
+              {formatPrice(d.currentPrice, d.currency)}
+            </p>
+            <p
+              className={`text-sm font-medium mt-1 ${changePositive ? "text-green-400" : "text-red-400"}`}
+            >
+              {changePositive ? "▲" : "▼"}{" "}
+              {Math.abs(d.percentChange).toFixed(2)}%
+            </p>
+          </div>
+        </div>
+
+        {editing ? (
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <input
+              value={editSector}
+              onChange={(e) => setEditSector(e.target.value)}
+              placeholder="Sektör"
+              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-[#b347ff] w-40"
+            />
+            <input
+              value={editIndustry}
+              onChange={(e) => setEditIndustry(e.target.value)}
+              placeholder="Endüstri"
+              className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-[#b347ff] w-48"
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+            >
+              {saving ? "..." : "✓ Kaydet"}
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+            >
+              İptal
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2 mt-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="inline-block bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm font-medium">
+                {translateSector(d.sector)}
+              </span>
+              {d.industry && (
+                <span className="inline-block text-slate-400 text-sm">
+                  • {translateIndustry(d.industry)}
                 </span>
-                {d.industry && (
-                  <span className="inline-block text-slate-400 text-sm">
-                    • {translateIndustry(d.industry)}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={startEdit}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium text-sm transition-colors flex items-center gap-1"
-              >
-                ✎ Düzenle
-              </button>
+              )}
               {saved && (
                 <span className="text-sm text-green-400 font-medium">
                   ✓ Kaydedildi
                 </span>
               )}
             </div>
-          )}
-        </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold text-white">
-            {formatPrice(d.currentPrice, d.currency)}
-          </p>
-          <p
-            className={`text-sm font-medium mt-1 ${changePositive ? "text-green-400" : "text-red-400"}`}
-          >
-            {changePositive ? "▲" : "▼"} {Math.abs(d.percentChange).toFixed(2)}%
-          </p>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-3 mb-8">
-        <Link
-          to={`/compare?s1=${ticker}`}
-          className="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          Karşılaştır
-        </Link>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 px-4 py-2 rounded-lg transition-colors"
-        >
-          Geri
-        </button>
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/compare?s1=${ticker}`}
+                className="text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-4 py-1.5 rounded-lg font-medium transition-colors"
+              >
+                Karşılaştır
+              </Link>
+              <button
+                onClick={startEdit}
+                className="bg-[#9D00FF] hover:bg-[#b347ff] text-white px-4 py-1.5 rounded-lg font-medium text-sm transition-colors flex items-center gap-1"
+              >
+                ✎ Düzenle
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fiyat Grafiği */}
       <div className="mb-8">
         <PriceChart ticker={ticker ?? ""} />
+      </div>
+
+      {/* Piotroski F-Score */}
+      <div className="mb-8">
+        <PiotroskiScoreCard ticker={ticker ?? ""} />
       </div>
 
       {/* Değerleme */}

@@ -106,7 +106,7 @@ export default function PriceChart({ ticker }: Props) {
               onClick={() => setRange(r.value)}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${
                 range === r.value
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[#9D00FF] text-white"
                   : "text-slate-400 hover:text-white hover:bg-slate-700"
               }`}
             >

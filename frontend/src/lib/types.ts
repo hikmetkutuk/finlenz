@@ -55,6 +55,18 @@ export interface SectorAverages {
   netDebtToEBITDA?: number;
 }
 
+export interface PiotroskiCriterion {
+  label: string;
+  pass: boolean;
+}
+
+export interface PiotroskiScore {
+  score: number;
+  maxScore: number;
+  fiscalYear: string;
+  criteria: PiotroskiCriterion[];
+}
+
 export interface HistoryPoint {
   date: string;
   close: number;

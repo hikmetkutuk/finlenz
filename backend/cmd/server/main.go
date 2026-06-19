@@ -49,6 +49,7 @@ func main() {
 	mux.HandleFunc("/api/compare", stockHandler.Compare)
 	mux.HandleFunc("/api/stocks", stocksHandler.List)
 	mux.HandleFunc("/api/stocks/{ticker}/history", stocksHandler.History)
+	mux.HandleFunc("/api/stocks/{ticker}/piotroski", stocksHandler.Piotroski)
 	mux.HandleFunc("/api/stocks/", stocksHandler.Detail)
 	mux.HandleFunc("/api/sectors", stocksHandler.Sectors)
 	mux.HandleFunc("/api/sectors/{sector}/averages", stocksHandler.SectorAverages)

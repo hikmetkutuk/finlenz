@@ -157,7 +157,7 @@ export default function HomePage() {
           aria-label="Sektör filtresi"
           value={sector}
           onChange={(e) => handleSectorChangeWithReset(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#b347ff]"
         >
           <option value="">Tüm Sektörler</option>
           {sectors.map((s) => (
@@ -172,7 +172,7 @@ export default function HomePage() {
             aria-label="Endüstri filtresi"
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#b347ff]"
           >
             <option value="">Tüm Endüstriler</option>
             {industries.map((i) => (
@@ -190,7 +190,7 @@ export default function HomePage() {
             setPage(1);
           }}
           placeholder="Hisse veya şirket ara..."
-          className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          className="flex-1 min-w-48 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#b347ff]"
         />
 
         {hasActiveFilters && (
@@ -235,7 +235,7 @@ export default function HomePage() {
                 className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
                 onClick={() => navigate(`/stock/${s.Ticker}`)}
               >
-                <td className="px-4 py-3 font-semibold text-blue-400">
+                <td className="px-4 py-3 font-semibold text-[#b347ff]">
                   {s.Ticker}
                 </td>
                 <td className="px-4 py-3 text-slate-200 max-w-48 truncate">
@@ -253,7 +253,7 @@ export default function HomePage() {
                       e.stopPropagation();
                       navigate(`/compare?s1=${s.Ticker}`);
                     }}
-                    className="text-xs text-slate-500 hover:text-blue-400 transition-colors px-2 py-1 rounded hover:bg-slate-700"
+                    className="text-xs text-slate-500 hover:text-[#b347ff] transition-colors px-2 py-1 rounded hover:bg-slate-700"
                   >
                     Karşılaştır
                   </button>
@@ -303,7 +303,7 @@ export default function HomePage() {
                   onClick={() => setPage(item.num)}
                   className={`w-8 h-8 text-sm rounded-lg transition-colors ${
                     page === item.num
-                      ? "bg-blue-600 text-white"
+                      ? "bg-[#9D00FF] text-white"
                       : "text-slate-400 hover:text-white hover:bg-slate-700"
                   }`}
                 >

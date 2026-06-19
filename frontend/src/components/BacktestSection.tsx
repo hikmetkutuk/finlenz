@@ -136,7 +136,7 @@ export default function BacktestSection({ ticker, currency }: Props) {
               onClick={() => setRange(r.value)}
               className={`text-xs px-2 py-1 rounded-md transition-colors ${
                 range === r.value
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[#9D00FF] text-white"
                   : "text-slate-400 hover:text-white hover:bg-slate-700"
               }`}
             >
@@ -154,7 +154,7 @@ export default function BacktestSection({ ticker, currency }: Props) {
           <input
             value={amountInput}
             onChange={(e) => setAmountInput(e.target.value)}
-            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white w-32 focus:outline-none focus:border-blue-400 text-right pr-6"
+            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white w-32 focus:outline-none focus:border-[#b347ff] text-right pr-6"
           />
           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
             {currencySymbol}
