@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { fetchSectors, fetchStocks } from "../lib/api";
 import type { StockListItem } from "../lib/types";
 import { translateSector, translateIndustry } from "../lib/utils";
@@ -8,6 +8,8 @@ const thClass =
   "text-left px-4 py-3 text-slate-400 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors";
 
 const PAGE_SIZE = 50;
+const MAX_COMPARE = 4;
+const SLOT_PARAMS = ["s1", "s2", "s3", "s4"];
 
 type PageItem =
   | { kind: "page"; num: number }
@@ -50,15 +52,25 @@ function sortIndicator(active: boolean, dir: SortDir): string {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sectorParam = searchParams.get("sector") ?? "";
+  const industryParam = searchParams.get("industry") ?? "";
   const [sectors, setSectors] = useState<string[]>([]);
-  const [sector, setSector] = useState("");
-  const [industry, setIndustry] = useState("");
+  const [sector, setSector] = useState(() => sectorParam);
+  const [industry, setIndustry] = useState(() => industryParam);
   const [stocks, setStocks] = useState<StockListItem[]>([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>(SORT_KEY.TICKER);
   const [sortDir, setSortDir] = useState<SortDir>(SORT_DIR.ASC);
   const [page, setPage] = useState(1);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSector(sectorParam);
+    setIndustry(industryParam);
+    setPage(1);
+  }, [sectorParam, industryParam]);
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search), 200);
@@ -146,8 +158,34 @@ export default function HomePage() {
     setPage(1);
   }
 
+  function toggleCompareSelection(ticker: string) {
+    setCompareSelection((prev) => {
+      if (prev.includes(ticker)) {
+        return prev.filter((t) => t !== ticker);
+      }
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, ticker];
+    });
+  }
+
+  function clearCompareSelection() {
+    setCompareSelection([]);
+  }
+
+  function goToComparison() {
+    if (compareSelection.length < 2) return;
+    const params: Record<string, string> = {};
+    compareSelection.forEach((t, i) => {
+      params[SLOT_PARAMS[i]] = t;
+    });
+    const query = new URLSearchParams(params).toString();
+    navigate(`/compare?${query}`);
+  }
+
   return (
-    <main className="max-w-4xl mx-auto px-4 py-10">
+    <main
+      className={`max-w-4xl mx-auto px-4 py-10 ${compareSelection.length > 0 ? "pb-24" : ""}`}
+    >
       <div className="mb-8">
         <h2 className="text-2xl font-semibold text-white mb-1">Hisseler</h2>
       </div>
@@ -229,37 +267,47 @@ export default function HomePage() {
             </tr>
           </thead>
           <tbody>
-            {paginated.map((s) => (
-              <tr
-                key={s.Ticker}
-                className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
-                onClick={() => navigate(`/stock/${s.Ticker}`)}
-              >
-                <td className="px-4 py-3 font-semibold text-[#b347ff]">
-                  {s.Ticker}
-                </td>
-                <td className="px-4 py-3 text-slate-200 max-w-48 truncate">
-                  {s.Name}
-                </td>
-                <td className="px-4 py-3 text-slate-400">
-                  {translateSector(s.Sector)}
-                </td>
-                <td className="px-4 py-3 text-slate-500 text-xs">
-                  {translateIndustry(s.Industry)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/compare?s1=${s.Ticker}`);
-                    }}
-                    className="text-xs text-slate-500 hover:text-[#b347ff] transition-colors px-2 py-1 rounded hover:bg-slate-700"
-                  >
-                    Karşılaştır
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {paginated.map((s) => {
+              const isSelected = compareSelection.includes(s.Ticker);
+              const selectionFull =
+                !isSelected && compareSelection.length >= MAX_COMPARE;
+              return (
+                <tr
+                  key={s.Ticker}
+                  className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/stock/${s.Ticker}`)}
+                >
+                  <td className="px-4 py-3 font-semibold text-[#b347ff]">
+                    {s.Ticker}
+                  </td>
+                  <td className="px-4 py-3 text-slate-200 max-w-48 truncate">
+                    {s.Name}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">
+                    {translateSector(s.Sector)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {translateIndustry(s.Industry)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCompareSelection(s.Ticker);
+                      }}
+                      disabled={selectionFull}
+                      className={`text-xs transition-colors px-2 py-1 rounded disabled:opacity-30 disabled:cursor-not-allowed ${
+                        isSelected
+                          ? "bg-[#9D00FF]/20 text-[#d9a3ff]"
+                          : "text-slate-500 hover:text-[#b347ff] hover:bg-slate-700"
+                      }`}
+                    >
+                      {isSelected ? "✓ Seçildi" : "Karşılaştır"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -325,6 +373,48 @@ export default function HomePage() {
             >
               »
             </button>
+          </div>
+        </div>
+      )}
+
+      {compareSelection.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 z-40">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-slate-400">
+                {compareSelection.length} hisse seçildi:
+              </span>
+              {compareSelection.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200"
+                >
+                  {t}
+                  <button
+                    onClick={() => toggleCompareSelection(t)}
+                    aria-label={`${t} seçimini kaldır`}
+                    className="text-slate-500 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearCompareSelection}
+                className="text-sm text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors"
+              >
+                Temizle
+              </button>
+              <button
+                onClick={goToComparison}
+                disabled={compareSelection.length < 2}
+                className="text-sm bg-[#9D00FF] hover:bg-[#b347ff] disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                Karşılaştır ({compareSelection.length})
+              </button>
+            </div>
           </div>
         </div>
       )}

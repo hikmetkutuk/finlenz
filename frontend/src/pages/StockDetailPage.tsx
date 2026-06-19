@@ -9,6 +9,7 @@ import type { SectorAverages, StockDetail } from "../lib/types";
 import PriceChart from "../components/PriceChart";
 import BacktestSection from "../components/BacktestSection";
 import PiotroskiScoreCard from "../components/PiotroskiScoreCard";
+import StockQuickSearch from "../components/StockQuickSearch";
 import {
   formatPrice,
   formatLargeNumber,
@@ -163,7 +164,11 @@ export default function StockDetailPage() {
   useEffect(() => {
     if (!ticker) return;
     let cancelled = false;
-    // P2: clear stale sector averages immediately when ticker changes
+    setEditing(false);
+    setEditSector("");
+    setEditIndustry("");
+    setSaved(false);
+    // Clear stale sector averages immediately when ticker changes.
     setSectorAvg(null);
     dispatch({ type: ACTION.FETCH });
     fetchStockDetail(ticker)
@@ -243,13 +248,16 @@ export default function StockDetailPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-        <Link to="/" className="hover:text-slate-300 transition-colors">
-          Hisseler
-        </Link>
-        <span>/</span>
-        <span className="text-slate-300">{ticker}</span>
+      {/* Breadcrumb & Hızlı Arama */}
+      <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Link to="/" className="hover:text-slate-300 transition-colors">
+            Hisseler
+          </Link>
+          <span>/</span>
+          <span className="text-slate-300">{ticker}</span>
+        </div>
+        <StockQuickSearch />
       </div>
 
       {/* Header */}
@@ -303,13 +311,19 @@ export default function StockDetailPage() {
         ) : (
           <div className="flex items-center justify-between gap-2 mt-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="inline-block bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm font-medium">
+              <Link
+                to={`/?sector=${encodeURIComponent(d.sector)}`}
+                className="inline-block bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+              >
                 {translateSector(d.sector)}
-              </span>
+              </Link>
               {d.industry && (
-                <span className="inline-block text-slate-400 text-sm">
+                <Link
+                  to={`/?sector=${encodeURIComponent(d.sector)}&industry=${encodeURIComponent(d.industry)}`}
+                  className="inline-block text-slate-400 hover:text-[#b347ff] text-sm transition-colors"
+                >
                   • {translateIndustry(d.industry)}
-                </span>
+                </Link>
               )}
               {saved && (
                 <span className="text-sm text-green-400 font-medium">
